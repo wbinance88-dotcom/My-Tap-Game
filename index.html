@@ -81,6 +81,117 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <!-- ဂိမ်းလုပ်ဆောင်ချက် ကုတ်များအားလုံးကို ဤနေရာတွင် စုစည်းပေးထားပါသည် -->
+    <script>
+        // Supabase Initialize
+        const SUPABASE_URL = "https://cgnnsmpbwhddewgfpjtu.supabase.co";
+        const SUPABASE_KEY = "Sb_publishable_YNnCR7OnTdXNWp1b6A6l8g_PXg40GfX";
+        const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+        // Telegram Web App Initialize
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        let userTgId = tg.initDataUnsafe?.user?.id || 123456789; 
+        let username = tg.initDataUnsafe?.user?.username || "GuestPlayer";
+        let userCoins = 0;
+
+        // Adsgram Block ID (စမ်းသပ်ဖို့ Test ID ထည့်ပေးထားပါတယ်)
+        const AdController = window.Adsgram ? window.Adsgram.createAd({ blockId: "int-4161" }) : null;
+
+        async function loadUserData() {
+            if (!supabase) return;
+
+            // User ဒေတာ ဆွဲယူမယ်
+            let { data: user, error } = await supabase.from('users').select('*').eq('telegram_id', userTgId).single();
+
+            // အကောင့်မရှိသေးရင် အသစ်ဆောက်မယ်
+            if (error && error.code === 'PGRST116') {
+                let startParam = tg.initDataUnsafe?.start_param;
+                let referrerId = startParam ? parseInt(startParam) : null;
+
+                const { data: newUser } = await supabase.from('users').insert([
+                    { telegram_id: userTgId, username: username, coins: 0, referred_by: referrerId }
+                ]).select().single();
+                user = newUser;
+            }
+
+            userCoins = user ? user.coins : 0;
+            document.getElementById('coin-display').innerText = userCoins;
+            document.getElementById('wallet-input').value = user?.wallet_address || "";
+            if(user?.withdraw_status !== 'none') {
+                document.getElementById('withdraw-status').innerText = `Status: ${user.withdraw_status}`;
+            }
+
+            // Referral Link ထုတ်ပေးမယ်
+            document.getElementById('refer-link').value = `https://t.me/Mytapminer_bot/app?startapp=${userTgId}`;
+            
+            // Referral Count ပြမယ်
+            let { data: refData } = await supabase.from('referral_counts').select('count').eq('referred_by', userTgId).single();
+            document.getElementById('refer-count').innerText = refData ? refData.count : 0;
+        }
+
+        // 🪙 နှိပ်ရင် ၁ ခုစီပဲ တက်မယ်
+        async function tapCoin() {
+            userCoins += 1;
+            document.getElementById('coin-display').innerText = userCoins;
+            await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
+        }
+
+        // 📺 ကြော်ငြာကြည့်ရင် ၅၀၀ တိုးပေးမယ်
+        function watchAd() {
+            if (!AdController) {
+                alert("Ads network not ready.");
+                return;
+            }
+            AdController.show().then(async (result) => {
+                userCoins += 500; 
+                document.getElementById('coin-display').innerText = userCoins;
+                await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
+                alert("Reward Added! +500 Coins");
+            }).catch((err) => {
+                alert("Ad failed to load or skipped.");
+            });
+        }
+
+        // 💰 Withdraw တောင်းဆိုချက်ပို့မယ်
+        async function requestWithdraw() {
+            let wallet = document.getElementById('wallet-input').value.trim();
+            if (!wallet) {
+                alert("Please enter a valid TON wallet address!");
+                return;
+            }
+            if (userCoins < 50000) {
+                alert("Minimum withdraw is 50,000 coins!");
+                return;
+            }
+
+            await supabase.from('users').update({ 
+                wallet_address: wallet, 
+                withdraw_status: 'Pending' 
+            }).eq('telegram_id', userTgId);
+
+            document.getElementById('withdraw-status').innerText = "Status: Pending (Admin will review)";
+            alert("Withdraw Request Submitted!");
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(`${tabName}-page`).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        function copyReferLink() {
+            let copyText = document.getElementById("refer-link");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value);
+            alert("Referral link copied!");
+        }
+
+        loadUserData();
+    </script>
 </body>
 </html>
