@@ -3,87 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Tap Game</title>
-    <!-- Adsgram နဲ့ Telegram SDK ချိတ်ဆက်ခြင်း -->
-    <script src="https://sad.adsgram.ai/js/adsgram-telegram-mini-app-sdk.js"></script>
+    <title>My Tap Miner</title>
+    <!-- Telegram Web App Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Adsgram Script -->
+    <script src="https://sad.adsgram.org/js/advblocks.js"></script>
     <style>
-        * { box-sizing: border-box; user-select: none; }
         body {
-            background: radial-gradient(circle, #1e1e2f 0%, #0f0f1a 100%);
-            color: #ffffff; font-family: sans-serif; margin: 0; padding: 0;
-            display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100vh; overflow: hidden;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
         }
-        .header { margin-top: 40px; text-align: center; }
-        .score-container { font-size: 42px; font-weight: bold; color: #ffd700; text-shadow: 0 0 15px rgba(255, 215, 0, 0.6); margin-top: 10px; }
-        .game-container { display: flex; justify-content: center; align-items: center; flex-grow: 1; }
+        .container { max-width: 400px; margin: auto; }
         .coin-btn {
-            width: 200px; height: 200px; border-radius: 50%;
-            background: radial-gradient(circle, #ffe066 0%, #f5b041 70%, #d35400 100%);
-            border: 8px solid #f39c12; cursor: pointer; box-shadow: 0 0 30px rgba(243, 156, 18, 0.6);
-            font-size: 70px; outline: none; transition: transform 0.05s ease;
+            width: 150px; height: 150px;
+            border-radius: 50%; background: gold;
+            border: 5px solid #d4af37; font-size: 50px;
+            cursor: pointer; margin: 30px auto;
+            box-shadow: 0 0 20px gold;
         }
-        .coin-btn:active { transform: scale(0.92); }
-        .ad-container { margin-bottom: 20px; }
-        .ad-btn {
-            background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); color: white;
-            border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 25px;
-            cursor: pointer; box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4); transition: transform 0.1s;
-        }
-        .ad-btn:active { transform: scale(0.95); }
-        .footer { margin-bottom: 40px; font-size: 14px; color: #88889b; }
+        .coin-btn:active { transform: scale(0.95); }
+        .nav-tabs { display: flex; justify-content: space-around; margin-top: 20px; }
+        .tab-btn { background: #333; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 5px; }
+        .tab-btn.active { background: gold; color: black; }
+        .page { display: none; margin-top: 20px; background: #2a2a2a; padding: 20px; border-radius: 10px; }
+        .page.active { display: block; }
+        input { padding: 10px; width: 80%; margin: 10px 0; background: #333; color: white; border: 1px solid #555; border-radius: 5px; }
+        button.action-btn { background: #0078ff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div>မိုင်းတွင်းတူးပြီး အကြွေစေ့စုမယ်</div>
-        <div class="score-container" id="score">0</div>
+    <div class="container">
+        <h2>🪙 My Tap Miner 🪙</h2>
+        <h1 id="coin-display">0</h1>
+
+        <!-- Nav Tabs -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('game')">Game</button>
+            <button class="tab-btn" onclick="switchTab('refer')">Refer</button>
+            <button class="tab-btn" onclick="switchTab('ads')">Ads</button>
+            <button class="tab-btn" onclick="switchTab('withdraw')">Withdraw</button>
+        </div>
+
+        <!-- Game Page -->
+        <div id="game-page" class="page active">
+            <button class="coin-btn" onclick="tapCoin()">🪙</button>
+            <p>Tap to Earn (+1 Coin)</p>
+        </div>
+
+        <!-- Refer Page -->
+        <div id="refer-page" class="page">
+            <h3>👥 Invite Friends</h3>
+            <p>Total Referred: <span id="refer-count">0</span></p>
+            <input type="text" id="refer-link" readonly>
+            <button class="action-btn" onclick="copyReferLink()">Copy Link</button>
+        </div>
+
+        <!-- Ads Page -->
+        <div id="ads-page" class="page">
+            <h3>📺 Watch Ads & Earn</h3>
+            <p>Watch a video to get +500 Coins!</p>
+            <button class="action-btn" style="background: #28a745;" onclick="watchAd()">Watch Ad Video</button>
+        </div>
+
+        <!-- Withdraw Page -->
+        <div id="withdraw-page" class="page">
+            <h3>💰 Withdraw TON</h3>
+            <p>Min Withdraw: 50,000 Coins</p>
+            <input type="text" id="wallet-input" placeholder="Enter TON Wallet Address">
+            <button class="action-btn" onclick="requestWithdraw()">Submit Request</button>
+            <p id="withdraw-status" style="margin-top:15px; color: gold;"></p>
+        </div>
     </div>
-    <div class="game-container">
-        <button class="coin-btn" onclick="tapCoin(event)">🪙</button>
-    </div>
-    <div class="ad-container">
-        <button class="ad-btn" onclick="showRewardAd()">📺 ကြော်ငြာကြည့်ပြီး Bonus ၅၀၀ ယူမယ်</button>
-    </div>
-    <div class="footer">Powered by Telegram WebApp</div>
 
-    <script>
-        const tele = window.Telegram ? window.Telegram.WebApp : null;
-        if (tele) { tele.ready(); tele.expand(); }
-
-        let coins = parseInt(localStorage.getItem("my_coins")) || 0;
-        const scoreDisplay = document.getElementById("score");
-        if (scoreDisplay) { scoreDisplay.innerText = coins; }
-
-        function tapCoin(event) {
-            coins += 1;
-            if (scoreDisplay) { scoreDisplay.innerText = coins; }
-            localStorage.setItem("my_coins", coins);
-            if (tele && tele.HapticFeedback) { tele.HapticFeedback.impactOccurred('medium'); }
-        }
-
-        function showRewardAd() {
-            // ကွင်းပိတ်နှင့် တွန့်ကွင်း အမှားကို ပြင်ဆင်လိုက်သည်
-            const Adsgram = window.Adsgram || (window.parent ? window.parent.Adsgram : null);
-            const AdController = Adsgram ? Adsgram.init({ blockId: "YOUR_BLOCK_ID" }) : null;
-
-            if (!AdController) {
-                alert("ဂိမ်းကို Telegram Bot ထဲမှာ ဖွင့်ဆော့တဲ့အခါ ကြော်ငြာဗီဒီယို ပွင့်လာပါလိမ့်မယ်။ (အခု စမ်းသပ်မှုအနေနဲ့ Bonus ၅၀၀ ပေးလိုက်ပါပြီ)");
-                coins += 500;
-                if (scoreDisplay) { scoreDisplay.innerText = coins; }
-                localStorage.setItem("my_coins", coins);
-                return;
-            }
-
-            AdController.show().then(() => {
-                coins += 500;
-                if (scoreDisplay) { scoreDisplay.innerText = coins; }
-                localStorage.setItem("my_coins", coins);
-                alert("ကြော်ငြာကြည့်ရှုမှု အောင်မြင်ပါတယ်။ Bonus ၅၀၀ ရပါပြီ။");
-            }).catch((err) => {
-                alert("ကြော်ငြာကို အဆုံးထိမကြည့်တဲ့အတွက် Bonus မရပါဘူး။");
-            });
-        }
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
