@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Tap Miner</title>
+    <title>My Tap Miner (V3)</title>
     <!-- Telegram Web App Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- Supabase CDN -->
@@ -52,14 +52,16 @@
         input { padding: 10px; width: 85%; margin: 10px 0; background: #333; color: white; border: 1px solid #555; border-radius: 5px; user-select: text; -webkit-user-select: text; }
         .action-btn { background: #0078ff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; display: inline-block; font-weight: bold; margin-top: 10px; }
         
-        #debug-status { color: #55ff55; font-size: 13px; margin-top: 10px; }
+        #system-log { color: #55ff55; font-size: 13px; margin-top: 10px; background: #222; padding: 5px; border-radius: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2> My Tap Miner </h2>
+        <h2>My Tap Miner V3</h2>
         <h1 id="coin-display" style="font-size: 45px; margin: 10px 0;">0</h1>
-        <div id="debug-status">Connecting to Database...</div>
+        
+        <!-- Status log to see if it works -->
+        <div id="system-log">Initializing...</div>
 
         <!-- Nav Tabs -->
         <div class="nav-tabs">
@@ -70,7 +72,7 @@
 
         <!-- Game Page -->
         <div id="game-page" class="page active">
-            <div class="coin-btn" id="gold-coin">🪙</div>
+            <button class="coin-btn" id="gold-coin">🪙</button>
             <p>Tap to Earn (+1 Coin)</p>
         </div>
 
@@ -94,7 +96,15 @@
     <script>
         const SUPABASE_URL = "https://cgnnsmpbwhddewgfpjtu.supabase.co";
         const SUPABASE_KEY = "Sb_publishable_YNnCR7OnTdXNWp1b6A6l8g_PXg40GfX";
-        const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+        
+        let supabase = null;
+        try {
+            if (window.supabase) {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            }
+        } catch(e) {
+            console.log("Supabase initialization failed");
+        }
 
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if(tg) {
@@ -106,34 +116,34 @@
         let username = tg?.initDataUnsafe?.user?.username || "GuestPlayer";
         let userCoins = 0;
 
-        function setStatus(msg, isError = false) {
-            const statusEl = document.getElementById('debug-status');
-            statusEl.innerText = msg;
-            statusEl.style.color = isError ? "#ff5555" : "#55ff55";
+        function updateLog(msg, color = "#55ff55") {
+            const logEl = document.getElementById('system-log');
+            if(logEl) {
+                logEl.innerText = msg;
+                logEl.style.color = color;
+            }
         }
 
+        // Error ဘယ်လောက်တက်တက် Coin တီးလို့ရစေရမယ့် loadUserData
         async function loadUserData() {
+            updateLog("Connecting safely to server...");
+            
             if (!supabase) {
-                setStatus("Database client load failed!", true);
+                updateLog("Offline Mode Active (Database Unreachable)", "#ffaa00");
                 return;
             }
+            
             try {
-                setStatus("Loading user profile...");
-                // User ရှိမရှိ စစ်ဆေးခြင်း
+                // User ကို Database ထဲ လှမ်းရှာမယ်
                 let { data: user, error } = await supabase.from('users').select('*').eq('telegram_id', userTgId).maybeSingle();
 
-                if (error) {
-                    // Table မရှိရင် သို့မဟုတ် Error တက်ရင်လည်း ဂိမ်းဆော့လို့ရအောင် လုပ်ထားပေးတယ်
-                    console.error("Supabase load error: ", error);
-                }
-
-                // အကောင့် မရှိသေးရင် အသစ်ဆောက်ပေးမယ်
                 if (!user) {
-                    setStatus("Creating new user profile...");
+                    // အကယ်၍ အကောင့်အသစ်ဆိုရင် ဖန်တီးမယ်
+                    updateLog("Creating account...");
                     let startParam = tg?.initDataUnsafe?.start_param;
                     let referrerId = startParam ? parseInt(startParam) : null;
 
-                    const { data: newUser, error: insertError } = await supabase.from('users').insert([
+                    const { data: newUser } = await supabase.from('users').insert([
                         { telegram_id: userTgId, username: username, coins: 0, referred_by: referrerId }
                     ]).select().maybeSingle();
                     
@@ -142,32 +152,33 @@
 
                 if (user) {
                     userCoins = user.coins || 0;
-                    document.getElementById('coin-display').innerText = userCoins.toLocaleString();
+                    document.getElementById('coin-display').innerText = userCoins;
                     document.getElementById('wallet-input').value = user.wallet_address || "";
                     if(user.withdraw_status && user.withdraw_status !== 'none') {
                         document.getElementById('withdraw-status').innerText = `Status: ${user.withdraw_status}`;
                     }
-                    setStatus("Connected & Profile Loaded!");
+                    updateLog("Successfully Connected!");
                 } else {
-                    setStatus("Offline Mode Active (Progress might not save)", true);
+                    updateLog("Offline Mode Active", "#ffaa00");
                 }
 
                 document.getElementById('refer-link').value = `https://t.me/Mytapminer_bot/app?startapp=${userTgId}`;
 
             } catch(e) {
-                setStatus("Network Error: Offline Mode", true);
+                updateLog("Connection Error: Offline Mode Enabled", "#ff5555");
                 console.error(e);
             }
         }
 
-        // 🪙 Coin နှိပ်ပြီး တိုးမည့်စနစ် (Database ထဲ အော်တို သိမ်းမည်)
+        // 🪙 Coin နှိပ်ပြီး တိုးမည့်စနစ်
         function tapCoin() {
             userCoins += 1;
-            document.getElementById('coin-display').innerText = userCoins.toLocaleString();
+            document.getElementById('coin-display').innerText = userCoins;
+            updateLog("Tapped! Coins: " + userCoins);
             saveCoinsToDatabase();
         }
 
-        // Database ထဲကို နှိပ်လိုက်တိုင်း အော်တို သွားသိမ်းပေးမည့်စနစ်
+        // Database ထဲ သိမ်းပေးမယ့်စနစ် (Background မှာပဲ သွားမယ်၊ Error တက်လည်း ဂိမ်းမရပ်ဘူး)
         async function saveCoinsToDatabase() {
             if (supabase) {
                 try {
@@ -178,18 +189,16 @@
             }
         }
 
-        // Button Click Event ကို ချိတ်ဆက်ခြင်း
+        // Coin Button ကို Touch event ချိတ်ဆက်ခြင်း (ဖုန်းတွေမှာ နှိပ်ရတာ အလွန်မြန်ဆန်သွက်လက်စေဖို့)
         const coinBtn = document.getElementById('gold-coin');
         if (coinBtn) {
-            // Mobile ထိတွေ့မှု ပိုမိုမြန်ဆန်စေရန် Touchstart သုံးထားသည်
-            coinBtn.addEventListener('touchstart', function(e) {
-                e.preventDefault();
+            coinBtn.onclick = function() {
                 tapCoin();
-            }, { passive: false });
-            
-            coinBtn.addEventListener('click', function(e) {
+            };
+            coinBtn.ontouchstart = function(e) {
+                e.preventDefault(); // zoom သို့မဟုတ် scroll မဖြစ်အောင်
                 tapCoin();
-            });
+            };
         }
 
         // Withdraw တောင်းဆိုချက်
@@ -231,7 +240,7 @@
             alert("Referral link copied!");
         }
 
-        // ဂိမ်းပွင့်တာနဲ့ Run မယ်
+        // စတင် Run ခြင်း
         loadUserData();
     </script>
 </body>
