@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>My Tap Miner</title>
     <!-- Telegram Web App Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -11,6 +11,12 @@
     <!-- Adsgram Script -->
     <script src="https://sad.adsgram.org/js/advblocks.js"></script>
     <style>
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            box-sizing: border-box;
+        }
         body {
             background-color: #1a1a1a;
             color: white;
@@ -18,69 +24,75 @@
             text-align: center;
             padding: 20px;
             margin: 0;
+            overflow: hidden;
         }
         .container { max-width: 400px; margin: auto; }
-        .coin-btn {
-            width: 150px; height: 150px;
+        
+        /* Coin Button အဖြစ်သုံးမည့် Div */
+        .coin-zone {
+            width: 160px; height: 160px;
             border-radius: 50%; background: gold;
-            border: 5px solid #d4af37; font-size: 50px;
-            cursor: pointer; margin: 30px auto;
-            box-shadow: 0 0 20px gold;
-            display: block;
-            text-align: center;
-            line-height: 140px;
+            border: 5px solid #d4af37; font-size: 60px;
+            cursor: pointer; margin: 40px auto;
+            box-shadow: 0 0 25px gold;
+            display: flex; align-items: center; justify-content: center;
+            touch-action: manipulation;
         }
-        .coin-btn:active { transform: scale(0.95); }
-        .nav-tabs { display: table; width: 100%; margin-top: 20px; border-collapse: separate; border-spacing: 5px; }
-        .tab-btn { display: table-cell; background: #333; color: white; border: none; padding: 10px 5px; cursor: pointer; border-radius: 5px; text-align: center; font-size: 14px; }
-        .tab-btn.active { background: gold; color: black; font-weight: bold; }
-        .page { display: none; margin-top: 20px; background: #2a2a2a; padding: 20px; border-radius: 10px; box-sizing: border-box; }
+        .coin-zone:active { transform: scale(0.92); }
+        
+        /* Navigation Tabs */
+        .nav-tabs { display: flex; justify-content: space-around; margin-top: 25px; gap: 5px; }
+        .tab-btn { flex: 1; background: #333; color: white; border: none; padding: 12px 5px; cursor: pointer; border-radius: 8px; text-align: center; font-size: 14px; font-weight: bold; touch-action: manipulation; }
+        .tab-btn.active { background: gold; color: black; }
+        
+        .page { display: none; margin-top: 20px; background: #2a2a2a; padding: 20px; border-radius: 12px; }
         .page.active { display: block; }
-        input { padding: 10px; width: 80%; margin: 10px 0; background: #333; color: white; border: 1px solid #555; border-radius: 5px; box-sizing: border-box; }
-        button.action-btn { background: #0078ff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        
+        input { padding: 12px; width: 90%; margin: 10px 0; background: #333; color: white; border: 1px solid #555; border-radius: 6px; -webkit-user-select: text; user-select: text; }
+        .action-btn { background: #0078ff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 90%; margin-top: 10px; touch-action: manipulation; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>🪙 My Tap Miner 🪙</h2>
-        <h1 id="coin-display">0</h1>
+        <h2> My Tap Miner </h2>
+        <h1 id="coin-display" style="font-size: 45px; margin: 10px 0;">0</h1>
 
         <!-- Nav Tabs -->
         <div class="nav-tabs">
-            <button id="tab-game" class="tab-btn active" onclick="switchTab('game')">Game</button>
-            <button id="tab-refer" class="tab-btn" onclick="switchTab('refer')">Refer</button>
-            <button id="tab-ads" class="tab-btn" onclick="switchTab('ads')">Ads</button>
-            <button id="tab-withdraw" class="tab-btn" onclick="switchTab('withdraw')">Withdraw</button>
+            <div id="tab-game" class="tab-btn active" onclick="switchTab('game')">Game</div>
+            <div id="tab-refer" class="tab-btn" onclick="switchTab('refer')">Refer</div>
+            <div id="tab-ads" class="tab-btn" onclick="switchTab('ads')">Ads</div>
+            <div id="tab-withdraw" class="tab-btn" onclick="switchTab('withdraw')">Withdraw</div>
         </div>
 
         <!-- Game Page -->
         <div id="game-page" class="page active">
-            <button class="coin-btn" onclick="tapCoin()">🪙</button>
-            <p>Tap to Earn (+1 Coin)</p>
+            <div class="coin-zone" id="click-target"></div>
+            <p style="color: #bbb;">Tap to Earn (+1 Coin)</p>
         </div>
 
         <!-- Refer Page -->
         <div id="refer-page" class="page">
-            <h3>👥 Invite Friends</h3>
-            <p>Total Referred: <span id="refer-count">0</span></p>
-            <input type="text" id="refer-link" readonly>
-            <button class="action-btn" onclick="copyReferLink()">Copy Link</button>
+            <h3> Invite Friends</h3>
+            <p>Total Referred: <span id="refer-count" style="color:gold; font-weight:bold;">0</span></p>
+            <input type="text" id="refer-link" readonly onclick="this.select();">
+            <div class="action-btn" onclick="copyReferLink()">Copy Link</div>
         </div>
 
         <!-- Ads Page -->
         <div id="ads-page" class="page">
-            <h3>📺 Watch Ads & Earn</h3>
+            <h3> Watch Ads & Earn</h3>
             <p>Watch a video to get +500 Coins!</p>
-            <button class="action-btn" style="background: #28a745;" onclick="watchAd()">Watch Ad Video</button>
+            <div class="action-btn" style="background: #28a745;" onclick="watchAd()">Watch Ad Video</div>
         </div>
 
         <!-- Withdraw Page -->
         <div id="withdraw-page" class="page">
-            <h3>💰 Withdraw TON</h3>
+            <h3> Withdraw TON</h3>
             <p>Min Withdraw: 50,000 Coins</p>
             <input type="text" id="wallet-input" placeholder="Enter TON Wallet Address">
-            <button class="action-btn" onclick="requestWithdraw()">Submit Request</button>
-            <p id="withdraw-status" style="margin-top:15px; color: gold;"></p>
+            <div class="action-btn" onclick="requestWithdraw()">Submit Request</div>
+            <p id="withdraw-status" style="margin-top:15px; color: gold; font-weight:bold;"></p>
         </div>
     </div>
 
@@ -106,12 +118,9 @@
 
         async function loadUserData() {
             if (!supabase) return;
-
             try {
-                // User ဒေတာ ဆွဲယူမယ်
                 let { data: user, error } = await supabase.from('users').select('*').eq('telegram_id', userTgId).single();
 
-                // အကောင့်မရှိသေးရင် အသစ်ဆောက်မယ်
                 if (error && error.code === 'PGRST116') {
                     let startParam = tg?.initDataUnsafe?.start_param;
                     let referrerId = startParam ? parseInt(startParam) : null;
@@ -123,33 +132,46 @@
                 }
 
                 userCoins = user ? user.coins : 0;
-                document.getElementById('coin-display').innerText = userCoins;
+                document.getElementById('coin-display').innerText = userCoins.toLocaleString();
                 document.getElementById('wallet-input').value = user?.wallet_address || "";
                 if(user?.withdraw_status && user.withdraw_status !== 'none') {
                     document.getElementById('withdraw-status').innerText = `Status: ${user.withdraw_status}`;
                 }
 
-                // Referral Link ထုတ်ပေးမယ်
                 document.getElementById('refer-link').value = `https://t.me/Mytapminer_bot/app?startapp=${userTgId}`;
                 
-                // Referral Count ပြမယ်
                 let { data: refData } = await supabase.from('referral_counts').select('count').eq('referred_by', userTgId).single();
                 document.getElementById('refer-count').innerText = refData ? refData.count : 0;
             } catch(e) {
-                console.log(e);
+                console.error(e);
             }
         }
 
-        // 🪙 နှိပ်ရင် ၁ ခုစီပဲ တက်မယ်
-        async function tapCoin() {
+        //  နှိပ်ရင် ၁ ခုစီတိုးမည့်စနစ် (Touch Event ပါ ထည့်ထားသည်)
+        function tapCoin(e) {
+            if(e) e.preventDefault();
             userCoins += 1;
-            document.getElementById('coin-display').innerText = userCoins;
-            if (supabase) {
-                await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
-            }
+            document.getElementById('coin-display').innerText = userCoins.toLocaleString();
+            saveCoins();
         }
 
-        // 📺 ကြော်ငြာကြည့်ရင် ၅၀၀ တိုးပေးမယ်
+        // Debounce စနစ်ဖြင့် Database ဝန်ထုတ်သက်သာအောင် သိမ်းခြင်း
+        let saveTimeout;
+        function saveCoins() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                if (supabase) {
+                    await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
+                }
+            }, 500); 
+        }
+
+        // Touch & Click နှစ်မျိုးလုံး အလုပ်လုပ်စေရန် Event ကြိုးချည်ခြင်း
+        const clickTarget = document.getElementById('click-target');
+        clickTarget.addEventListener('touchstart', tapCoin, { passive: false });
+        clickTarget.addEventListener('click', tapCoin);
+
+        //  Ads
         function watchAd() {
             if (!AdController) {
                 alert("Ads network not ready.");
@@ -157,7 +179,7 @@
             }
             AdController.show().then(async (result) => {
                 userCoins += 500; 
-                document.getElementById('coin-display').innerText = userCoins;
+                document.getElementById('coin-display').innerText = userCoins.toLocaleString();
                 if (supabase) {
                     await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
                 }
@@ -167,7 +189,7 @@
             });
         }
 
-        // 💰 Withdraw တောင်းဆိုချက်ပို့မယ်
+        //  Withdraw
         async function requestWithdraw() {
             let wallet = document.getElementById('wallet-input').value.trim();
             if (!wallet) {
@@ -190,20 +212,17 @@
             alert("Withdraw Request Submitted!");
         }
 
-        // Tab ပြောင်းတဲ့စနစ်ကို အမှားမတက်အောင် သေချာပြင်ထားပါတယ်
+        // Tabs ပြောင်းလဲခြင်းစနစ်
         function switchTab(tabName) {
-            // စာမျက်နှာအားလုံး ဖျောက်မယ်
             const pages = document.getElementsByClassName('page');
             for(let i=0; i<pages.length; i++) {
                 pages[i].classList.remove('active');
             }
-            // ခလုတ်အားလုံး Active ဖြုတ်မယ်
             const buttons = document.getElementsByClassName('tab-btn');
             for(let i=0; i<buttons.length; i++) {
                 buttons[i].classList.remove('active');
             }
             
-            // သက်ဆိုင်ရာ စာမျက်နှာနဲ့ ခလုတ်ကို ဖွင့်မယ်
             document.getElementById(tabName + '-page').classList.add('active');
             document.getElementById('tab-' + tabName).classList.add('active');
         }
@@ -211,12 +230,11 @@
         function copyReferLink() {
             let copyText = document.getElementById("refer-link");
             copyText.select();
-            copyText.setSelectionRange(0, 99999);
             navigator.clipboard.writeText(copyText.value);
             alert("Referral link copied!");
         }
 
-        // ဂိမ်းစဖွင့်တာနဲ့ အလုပ်လုပ်မယ်
+        // စတင်ချိန်တွင် ဒေတာဆွဲယူမည်
         loadUserData();
     </script>
 </body>
