@@ -1,43 +1,238 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debug Mode</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>My Tap Miner</title>
+    <!-- Telegram Web App Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .container { max-width: 400px; margin: auto; }
+        
+        /* 🪙 Coin Button */
+        .coin-btn {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: gold;
+            border: 5px solid #d4af37;
+            font-size: 50px;
+            cursor: pointer;
+            margin: 30px auto;
+            box-shadow: 0 0 20px gold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        .coin-btn:active { transform: scale(0.95); }
+        
+        /* Navigation Tabs */
+        .nav-tabs { display: flex; justify-content: space-around; margin-top: 20px; }
+        .tab-btn { background: #333; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .tab-btn.active { background: gold; color: black; }
+        
+        .page { display: none; margin-top: 20px; background: #2a2a2a; padding: 20px; border-radius: 10px; }
+        .page.active { display: block; }
+        
+        input { padding: 10px; width: 85%; margin: 10px 0; background: #333; color: white; border: 1px solid #555; border-radius: 5px; user-select: text; -webkit-user-select: text; }
+        .action-btn { background: #0078ff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; display: inline-block; font-weight: bold; margin-top: 10px; }
+        
+        #debug-status { color: #55ff55; font-size: 13px; margin-top: 10px; }
+    </style>
 </head>
-<body style="background: #1a1a1a; color: white; text-align: center; padding: 20px;">
+<body>
+    <div class="container">
+        <h2> My Tap Miner </h2>
+        <h1 id="coin-display" style="font-size: 45px; margin: 10px 0;">0</h1>
+        <div id="debug-status">Connecting to Database...</div>
 
-    <h1>Tap Miner</h1>
-    <h2 id="coin-display">0</h2>
-    
-    <!-- နှိပ်မရတဲ့ ပြဿနာ စစ်ဆေးဖို့ Status Log -->
-    <div id="debug-log" style="background: #333; padding: 10px; margin: 10px; border-radius: 5px; color: yellow;">
-        Status: Initializing...
+        <!-- Nav Tabs -->
+        <div class="nav-tabs">
+            <button id="tab-game" class="tab-btn active" onclick="switchTab('game')">Game</button>
+            <button id="tab-refer" class="tab-btn" onclick="switchTab('refer')">Refer</button>
+            <button id="tab-withdraw" class="tab-btn" onclick="switchTab('withdraw')">Withdraw</button>
+        </div>
+
+        <!-- Game Page -->
+        <div id="game-page" class="page active">
+            <div class="coin-btn" id="gold-coin">🪙</div>
+            <p>Tap to Earn (+1 Coin)</p>
+        </div>
+
+        <!-- Refer Page -->
+        <div id="refer-page" class="page">
+            <h3>👥 Invite Friends</h3>
+            <input type="text" id="refer-link" readonly onclick="this.select();">
+            <button class="action-btn" onclick="copyReferLink()">Copy Link</button>
+        </div>
+
+        <!-- Withdraw Page -->
+        <div id="withdraw-page" class="page">
+            <h3>💰 Withdraw TON</h3>
+            <p>Min Withdraw: 50,000 Coins</p>
+            <input type="text" id="wallet-input" placeholder="Enter TON Wallet Address">
+            <button class="action-btn" onclick="requestWithdraw()">Submit Request</button>
+            <p id="withdraw-status" style="margin-top:15px; color: gold; font-weight: bold;"></p>
+        </div>
     </div>
 
-    <button id="tap-btn" style="width: 150px; height: 150px; border-radius: 50%; font-size: 50px; cursor: pointer;">🪙</button>
-
     <script>
-        const log = (msg) => {
-            document.getElementById('debug-log').innerText = msg;
-            console.log(msg);
-        };
+        const SUPABASE_URL = "https://cgnnsmpbwhddewgfpjtu.supabase.co";
+        const SUPABASE_KEY = "Sb_publishable_YNnCR7OnTdXNWp1b6A6l8g_PXg40GfX";
+        const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
-        try {
-            const btn = document.getElementById('tap-btn');
-            let coins = 0;
-
-            btn.onclick = () => {
-                coins++;
-                document.getElementById('coin-display').innerText = coins;
-                log("Success: Button Clicked! Coins: " + coins);
-            };
-
-            log("System Ready. Click the coin.");
-        } catch(e) {
-            log("Error: " + e.message);
+        const tg = window.Telegram ? window.Telegram.WebApp : null;
+        if(tg) {
+            tg.expand();
+            tg.ready();
         }
+
+        let userTgId = tg?.initDataUnsafe?.user?.id || 123456789; 
+        let username = tg?.initDataUnsafe?.user?.username || "GuestPlayer";
+        let userCoins = 0;
+
+        function setStatus(msg, isError = false) {
+            const statusEl = document.getElementById('debug-status');
+            statusEl.innerText = msg;
+            statusEl.style.color = isError ? "#ff5555" : "#55ff55";
+        }
+
+        async function loadUserData() {
+            if (!supabase) {
+                setStatus("Database client load failed!", true);
+                return;
+            }
+            try {
+                setStatus("Loading user profile...");
+                // User ရှိမရှိ စစ်ဆေးခြင်း
+                let { data: user, error } = await supabase.from('users').select('*').eq('telegram_id', userTgId).maybeSingle();
+
+                if (error) {
+                    // Table မရှိရင် သို့မဟုတ် Error တက်ရင်လည်း ဂိမ်းဆော့လို့ရအောင် လုပ်ထားပေးတယ်
+                    console.error("Supabase load error: ", error);
+                }
+
+                // အကောင့် မရှိသေးရင် အသစ်ဆောက်ပေးမယ်
+                if (!user) {
+                    setStatus("Creating new user profile...");
+                    let startParam = tg?.initDataUnsafe?.start_param;
+                    let referrerId = startParam ? parseInt(startParam) : null;
+
+                    const { data: newUser, error: insertError } = await supabase.from('users').insert([
+                        { telegram_id: userTgId, username: username, coins: 0, referred_by: referrerId }
+                    ]).select().maybeSingle();
+                    
+                    if (newUser) user = newUser;
+                }
+
+                if (user) {
+                    userCoins = user.coins || 0;
+                    document.getElementById('coin-display').innerText = userCoins.toLocaleString();
+                    document.getElementById('wallet-input').value = user.wallet_address || "";
+                    if(user.withdraw_status && user.withdraw_status !== 'none') {
+                        document.getElementById('withdraw-status').innerText = `Status: ${user.withdraw_status}`;
+                    }
+                    setStatus("Connected & Profile Loaded!");
+                } else {
+                    setStatus("Offline Mode Active (Progress might not save)", true);
+                }
+
+                document.getElementById('refer-link').value = `https://t.me/Mytapminer_bot/app?startapp=${userTgId}`;
+
+            } catch(e) {
+                setStatus("Network Error: Offline Mode", true);
+                console.error(e);
+            }
+        }
+
+        // 🪙 Coin နှိပ်ပြီး တိုးမည့်စနစ် (Database ထဲ အော်တို သိမ်းမည်)
+        function tapCoin() {
+            userCoins += 1;
+            document.getElementById('coin-display').innerText = userCoins.toLocaleString();
+            saveCoinsToDatabase();
+        }
+
+        // Database ထဲကို နှိပ်လိုက်တိုင်း အော်တို သွားသိမ်းပေးမည့်စနစ်
+        async function saveCoinsToDatabase() {
+            if (supabase) {
+                try {
+                    await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
+                } catch(err) {
+                    console.log("Database Sync Failed");
+                }
+            }
+        }
+
+        // Button Click Event ကို ချိတ်ဆက်ခြင်း
+        const coinBtn = document.getElementById('gold-coin');
+        if (coinBtn) {
+            // Mobile ထိတွေ့မှု ပိုမိုမြန်ဆန်စေရန် Touchstart သုံးထားသည်
+            coinBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                tapCoin();
+            }, { passive: false });
+            
+            coinBtn.addEventListener('click', function(e) {
+                tapCoin();
+            });
+        }
+
+        // Withdraw တောင်းဆိုချက်
+        async function requestWithdraw() {
+            let wallet = document.getElementById('wallet-input').value.trim();
+            if (!wallet) {
+                alert("Please enter TON wallet address!");
+                return;
+            }
+            if (userCoins < 50000) {
+                alert("Minimum withdraw is 50,000 coins!");
+                return;
+            }
+
+            if (supabase) {
+                await supabase.from('users').update({ 
+                    wallet_address: wallet, 
+                    withdraw_status: 'Pending' 
+                }).eq('telegram_id', userTgId);
+            }
+
+            document.getElementById('withdraw-status').innerText = "Status: Pending";
+            alert("Withdraw Requested!");
+        }
+
+        // Tab ပြောင်းလဲခြင်း စနစ်
+        function switchTab(tabName) {
+            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(tabName + '-page').style.display = 'block';
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        function copyReferLink() {
+            let copyText = document.getElementById("refer-link");
+            copyText.select();
+            navigator.clipboard.writeText(copyText.value);
+            alert("Referral link copied!");
+        }
+
+        // ဂိမ်းပွင့်တာနဲ့ Run မယ်
+        loadUserData();
     </script>
 </body>
 </html>
