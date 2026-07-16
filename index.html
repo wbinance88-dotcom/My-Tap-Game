@@ -26,14 +26,17 @@
             border: 5px solid #d4af37; font-size: 50px;
             cursor: pointer; margin: 30px auto;
             box-shadow: 0 0 20px gold;
+            display: block;
+            text-align: center;
+            line-height: 140px;
         }
         .coin-btn:active { transform: scale(0.95); }
-        .nav-tabs { display: flex; justify-content: space-around; margin-top: 20px; }
-        .tab-btn { background: #333; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 5px; }
-        .tab-btn.active { background: gold; color: black; }
-        .page { display: none; margin-top: 20px; background: #2a2a2a; padding: 20px; border-radius: 10px; }
+        .nav-tabs { display: table; width: 100%; margin-top: 20px; border-collapse: separate; border-spacing: 5px; }
+        .tab-btn { display: table-cell; background: #333; color: white; border: none; padding: 10px 5px; cursor: pointer; border-radius: 5px; text-align: center; font-size: 14px; }
+        .tab-btn.active { background: gold; color: black; font-weight: bold; }
+        .page { display: none; margin-top: 20px; background: #2a2a2a; padding: 20px; border-radius: 10px; box-sizing: border-box; }
         .page.active { display: block; }
-        input { padding: 10px; width: 80%; margin: 10px 0; background: #333; color: white; border: 1px solid #555; border-radius: 5px; }
+        input { padding: 10px; width: 80%; margin: 10px 0; background: #333; color: white; border: 1px solid #555; border-radius: 5px; box-sizing: border-box; }
         button.action-btn { background: #0078ff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
@@ -44,10 +47,10 @@
 
         <!-- Nav Tabs -->
         <div class="nav-tabs">
-            <button class="tab-btn active" onclick="switchTab('game')">Game</button>
-            <button class="tab-btn" onclick="switchTab('refer')">Refer</button>
-            <button class="tab-btn" onclick="switchTab('ads')">Ads</button>
-            <button class="tab-btn" onclick="switchTab('withdraw')">Withdraw</button>
+            <button id="tab-game" class="tab-btn active" onclick="switchTab('game')">Game</button>
+            <button id="tab-refer" class="tab-btn" onclick="switchTab('refer')">Refer</button>
+            <button id="tab-ads" class="tab-btn" onclick="switchTab('ads')">Ads</button>
+            <button id="tab-withdraw" class="tab-btn" onclick="switchTab('withdraw')">Withdraw</button>
         </div>
 
         <!-- Game Page -->
@@ -81,7 +84,6 @@
         </div>
     </div>
 
-    <!-- ဂိမ်းလုပ်ဆောင်ချက် ကုတ်များအားလုံးကို ဤနေရာတွင် စုစည်းပေးထားပါသည် -->
     <script>
         // Supabase Initialize
         const SUPABASE_URL = "https://cgnnsmpbwhddewgfpjtu.supabase.co";
@@ -90,52 +92,61 @@
 
         // Telegram Web App Initialize
         const tg = window.Telegram.WebApp;
-        tg.expand();
+        if(tg) {
+            tg.expand();
+            tg.ready();
+        }
 
-        let userTgId = tg.initDataUnsafe?.user?.id || 123456789; 
-        let username = tg.initDataUnsafe?.user?.username || "GuestPlayer";
+        let userTgId = tg?.initDataUnsafe?.user?.id || 123456789; 
+        let username = tg?.initDataUnsafe?.user?.username || "GuestPlayer";
         let userCoins = 0;
 
-        // Adsgram Block ID (စမ်းသပ်ဖို့ Test ID ထည့်ပေးထားပါတယ်)
+        // Adsgram Block ID
         const AdController = window.Adsgram ? window.Adsgram.createAd({ blockId: "int-4161" }) : null;
 
         async function loadUserData() {
             if (!supabase) return;
 
-            // User ဒေတာ ဆွဲယူမယ်
-            let { data: user, error } = await supabase.from('users').select('*').eq('telegram_id', userTgId).single();
+            try {
+                // User ဒေတာ ဆွဲယူမယ်
+                let { data: user, error } = await supabase.from('users').select('*').eq('telegram_id', userTgId).single();
 
-            // အကောင့်မရှိသေးရင် အသစ်ဆောက်မယ်
-            if (error && error.code === 'PGRST116') {
-                let startParam = tg.initDataUnsafe?.start_param;
-                let referrerId = startParam ? parseInt(startParam) : null;
+                // အကောင့်မရှိသေးရင် အသစ်ဆောက်မယ်
+                if (error && error.code === 'PGRST116') {
+                    let startParam = tg?.initDataUnsafe?.start_param;
+                    let referrerId = startParam ? parseInt(startParam) : null;
 
-                const { data: newUser } = await supabase.from('users').insert([
-                    { telegram_id: userTgId, username: username, coins: 0, referred_by: referrerId }
-                ]).select().single();
-                user = newUser;
+                    const { data: newUser } = await supabase.from('users').insert([
+                        { telegram_id: userTgId, username: username, coins: 0, referred_by: referrerId }
+                    ]).select().single();
+                    user = newUser;
+                }
+
+                userCoins = user ? user.coins : 0;
+                document.getElementById('coin-display').innerText = userCoins;
+                document.getElementById('wallet-input').value = user?.wallet_address || "";
+                if(user?.withdraw_status && user.withdraw_status !== 'none') {
+                    document.getElementById('withdraw-status').innerText = `Status: ${user.withdraw_status}`;
+                }
+
+                // Referral Link ထုတ်ပေးမယ်
+                document.getElementById('refer-link').value = `https://t.me/Mytapminer_bot/app?startapp=${userTgId}`;
+                
+                // Referral Count ပြမယ်
+                let { data: refData } = await supabase.from('referral_counts').select('count').eq('referred_by', userTgId).single();
+                document.getElementById('refer-count').innerText = refData ? refData.count : 0;
+            } catch(e) {
+                console.log(e);
             }
-
-            userCoins = user ? user.coins : 0;
-            document.getElementById('coin-display').innerText = userCoins;
-            document.getElementById('wallet-input').value = user?.wallet_address || "";
-            if(user?.withdraw_status !== 'none') {
-                document.getElementById('withdraw-status').innerText = `Status: ${user.withdraw_status}`;
-            }
-
-            // Referral Link ထုတ်ပေးမယ်
-            document.getElementById('refer-link').value = `https://t.me/Mytapminer_bot/app?startapp=${userTgId}`;
-            
-            // Referral Count ပြမယ်
-            let { data: refData } = await supabase.from('referral_counts').select('count').eq('referred_by', userTgId).single();
-            document.getElementById('refer-count').innerText = refData ? refData.count : 0;
         }
 
         // 🪙 နှိပ်ရင် ၁ ခုစီပဲ တက်မယ်
         async function tapCoin() {
             userCoins += 1;
             document.getElementById('coin-display').innerText = userCoins;
-            await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
+            if (supabase) {
+                await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
+            }
         }
 
         // 📺 ကြော်ငြာကြည့်ရင် ၅၀၀ တိုးပေးမယ်
@@ -147,7 +158,9 @@
             AdController.show().then(async (result) => {
                 userCoins += 500; 
                 document.getElementById('coin-display').innerText = userCoins;
-                await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
+                if (supabase) {
+                    await supabase.from('users').update({ coins: userCoins }).eq('telegram_id', userTgId);
+                }
                 alert("Reward Added! +500 Coins");
             }).catch((err) => {
                 alert("Ad failed to load or skipped.");
@@ -166,21 +179,33 @@
                 return;
             }
 
-            await supabase.from('users').update({ 
-                wallet_address: wallet, 
-                withdraw_status: 'Pending' 
-            }).eq('telegram_id', userTgId);
+            if (supabase) {
+                await supabase.from('users').update({ 
+                    wallet_address: wallet, 
+                    withdraw_status: 'Pending' 
+                }).eq('telegram_id', userTgId);
+            }
 
             document.getElementById('withdraw-status').innerText = "Status: Pending (Admin will review)";
             alert("Withdraw Request Submitted!");
         }
 
+        // Tab ပြောင်းတဲ့စနစ်ကို အမှားမတက်အောင် သေချာပြင်ထားပါတယ်
         function switchTab(tabName) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            // စာမျက်နှာအားလုံး ဖျောက်မယ်
+            const pages = document.getElementsByClassName('page');
+            for(let i=0; i<pages.length; i++) {
+                pages[i].classList.remove('active');
+            }
+            // ခလုတ်အားလုံး Active ဖြုတ်မယ်
+            const buttons = document.getElementsByClassName('tab-btn');
+            for(let i=0; i<buttons.length; i++) {
+                buttons[i].classList.remove('active');
+            }
             
-            document.getElementById(`${tabName}-page`).classList.add('active');
-            event.currentTarget.classList.add('active');
+            // သက်ဆိုင်ရာ စာမျက်နှာနဲ့ ခလုတ်ကို ဖွင့်မယ်
+            document.getElementById(tabName + '-page').classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
         }
 
         function copyReferLink() {
@@ -191,6 +216,7 @@
             alert("Referral link copied!");
         }
 
+        // ဂိမ်းစဖွင့်တာနဲ့ အလုပ်လုပ်မယ်
         loadUserData();
     </script>
 </body>
